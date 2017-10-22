@@ -137,7 +137,7 @@ class NJChatHandler(object):
 class NJ_064_ChatHandler(NJChatHandler):
     @asyncio.coroutine
     def handle_nj_keepalive(self):
-        yield from self.proto.send_nj_msg(b"P")
+        yield from self.send_nj_msg(b"P")
 
     @asyncio.coroutine
     def handle_nj_msg(self):
