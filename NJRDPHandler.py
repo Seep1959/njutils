@@ -71,7 +71,7 @@ class NJRDPHandler(object):
 class NJ_064_RDPHandler(NJRDPHandler):
     @asyncio.coroutine
     def handle_nj_keepalive(self):
-        yield from self.proto.send_nj_msg(b"P")
+        yield from self.send_nj_msg(b"P")
 
     @asyncio.coroutine
     def get_image(self, size):
