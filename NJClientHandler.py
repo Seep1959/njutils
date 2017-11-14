@@ -284,15 +284,18 @@ class NJ_064_ClientHandler(NJClientHandler):
             if self.INTERACTIVE_CHAT:
                 # a malicious server could do some command line injection here, ehh ill maybe fix it later
                 # forever grateful to who ever can make this less disgusting
-                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
-                     os.getcwd(),
-                     self.host,
-                     self.port,
-                     self.args["identifier"],
-                     self.ver,
-                     self.delimiter)
-                self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
-                subprocess.Popen(command, shell=True)
+                cmd = [
+                    'gnome-terminal', '--window-with-profile=njchat', '--',
+                    'python3', 'njchat.py', str(self.host), str(self.port),
+                        '--ver', str(self.ver),
+                        '--identifier', str(self.args["identifier"]),
+                        '--delimiter', str(self.delimiter)]
+                self.controller.output("Starting interactive chat, running the following command\n{}".format(cmd))
+                try:
+                    subprocess.Popen(cmd, cwd=os.getcwd())
+                except Exception as error:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    print(error)
             else:
                 controller = NJController(NJ_064_ChatHandler, self.args, c=None)
                 controller.start()
@@ -386,15 +389,18 @@ class NJ_07d_ClientHandler(NJClientHandler):
         if module == "ch.dll" and self.CHAT_ENABLED:
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
-                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
-                     os.getcwd(),
-                     self.host,
-                     self.port,
-                     self.args["identifier"],
-                     self.ver,
-                     self.delimiter)
-                self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
-                subprocess.Popen(command, shell=True)
+                cmd = [
+                    'gnome-terminal', '--window-with-profile=njchat', '--',
+                    'python3', 'njchat.py', str(self.host), str(self.port),
+                        '--ver', str(self.ver),
+                        '--identifier', str(self.args["identifier"]),
+                        '--delimiter', str(self.delimiter)]
+                self.controller.output("Starting interactive chat, running the following command\n{}".format(cmd))
+                try:
+                    subprocess.Popen(cmd, cwd=os.getcwd())
+                except Exception as error:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    print(error)
             else:
                 controller = NJController(NJ_07d_ChatHandler, self.args, c=None)
                 controller.start()
@@ -487,16 +493,15 @@ class NJ_07dg_ClientHandler(NJClientHandler):
         if module == "ch.dll" and self.CHAT_ENABLED:
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
-                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
-                     os.getcwd(),
-                     self.host,
-                     self.port,
-                     self.args["identifier"],
-                     self.ver,
-                     re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;)", r"\\\1", self.delimiter))
-                self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
+                cmd = [
+                    'gnome-terminal', '--window-with-profile=njchat', '--',
+                    'python3', 'njchat.py', str(self.host), str(self.port),
+                        '--ver', str(self.ver),
+                        '--identifier', str(self.args["identifier"]),
+                        '--delimiter', str(self.delimiter)]
+                self.controller.output("Starting interactive chat, running the following command\n{}".format(cmd))
                 try:
-                    subprocess.Popen(command, shell=True)
+                    subprocess.Popen(cmd, cwd=os.getcwd())
                 except Exception as error:
                     print("Unexpected error:", sys.exc_info()[0])
                     print(error)
