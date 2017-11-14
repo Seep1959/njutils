@@ -2,6 +2,7 @@ import asyncio
 import base64
 import time
 import sys
+import re
 import os
 import zlib
 import tempfile
@@ -27,7 +28,12 @@ modules = {b"2681e81bb4c4b3e6338ce2a456fb93a7": "sc2.dll",
            b"39b7927e0d4deb5c10fb380b7c53c617": "fm.dll",
            b"f6f6bcff36399302d016a2766c919bad": "ch.dll",
            b"140dc0e9ebf6b13690e878616dc2eba9": "cam.dll",
-           b"d07291b438fb3f7ccb64c2e1efaf75d1": "ch.dll"}
+           b"d07291b438fb3f7ccb64c2e1efaf75d1": "ch.dll",
+           b"3652f46ef1d77386dc985c42db2a43f8": "sc2.dll",
+           b"61d60f5995eefd94e5bda84f1d76658a": "ch.dll",
+           b"9fab2255751057746b517f7a8d1fbe4d": "sc2.dll",
+           b"ff4362f7f574b3f3d01042776ac31fc6": "cam.dll",
+           b"c509995035cb9810559d98dc608b5c29": "mic.dll"}
 
 
 class NJClientHandler(object):
@@ -114,6 +120,8 @@ class NJClientHandler(object):
             self.delimiter = "|'|'|"
         if self.ver == "0.7dg":
             self.delimiter = "|Hassan|"
+        if args["delimiter"]:
+            self.delimiter = args["delimiter"]
         self.filepath = "downloads/" + str(self.host) + "_" + str(self.port)
         tempfile.tempdir = self.filepath
         if not os.path.exists(self.filepath):
@@ -163,7 +171,6 @@ class NJClientHandler(object):
                 print("Unexpected error:", sys.exc_info()[0])
                 print(error)
             yield from self.nj_send_keylogs(data)
-
 
     @asyncio.coroutine
     def handle_nj_cap_command(self, msg):
@@ -222,8 +229,8 @@ class NJClientHandler(object):
     @asyncio.coroutine
     def handle_nj_kl_command(self):
         self.controller.output("Received request for keylogs")
-        yield from self.nj_update_foreground(b"Quit looking at my keys")
         yield from self.nj_send_keylogs(self.keylog_text)
+        yield from self.nj_update_foreground(b"Quit looking at my keys")
 
     @asyncio.coroutine
     def handle_nj_rn_command(self, msg):
@@ -276,11 +283,14 @@ class NJ_064_ClientHandler(NJClientHandler):
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
                 # a malicious server could do some command line injection here, ehh ill maybe fix it later
-                command = "gnome-terminal -- bash -c \"python3 njchat.py {} {} --identifier {} --ver {}\"".format(
+                # forever grateful to who ever can make this less disgusting
+                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
+                     os.getcwd(),
                      self.host,
                      self.port,
                      self.args["identifier"],
-                     self.ver)
+                     self.ver,
+                     self.delimiter)
                 self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
                 subprocess.Popen(command, shell=True)
             else:
@@ -376,11 +386,13 @@ class NJ_07d_ClientHandler(NJClientHandler):
         if module == "ch.dll" and self.CHAT_ENABLED:
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
-                command = "gnome-terminal -- bash -c \"python3 njchat.py {} {} --identifier {} --ver {}\"".format(
+                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
+                     os.getcwd(),
                      self.host,
                      self.port,
                      self.args["identifier"],
-                     self.ver)
+                     self.ver,
+                     self.delimiter)
                 self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
                 subprocess.Popen(command, shell=True)
             else:
@@ -475,13 +487,19 @@ class NJ_07dg_ClientHandler(NJClientHandler):
         if module == "ch.dll" and self.CHAT_ENABLED:
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
-                command = "gnome-terminal -- bash -c \"python3 njchat.py {} {} --identifier {} --ver {}\"".format(
+                command = "gnome-terminal -- bash -c \"cd {}; python3 njchat.py {} {} --identifier {} --ver {} --delimiter \\\"{}\\\"\"".format(
+                     os.getcwd(),
                      self.host,
                      self.port,
                      self.args["identifier"],
-                     self.ver)
+                     self.ver,
+                     re.sub("(!|\$|#|&|\"|\'|\(|\)|\||<|>|`|\\\|;)", r"\\\1", self.delimiter))
                 self.controller.output("Starting interactive chat, running the following command\n{}".format(command))
-                subprocess.Popen(command, shell=True)
+                try:
+                    subprocess.Popen(command, shell=True)
+                except Exception as error:
+                    print("Unexpected error:", sys.exc_info()[0])
+                    print(error)
             else:
                 controller = NJController(NJ_07dg_ChatHandler, self.args, c=None)
                 controller.start()

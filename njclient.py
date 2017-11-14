@@ -18,6 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("-u", "--username", default="Jack", type=str, help="Username reported on inital callback.")
     parser.add_argument("-y", "--ver", default="0.7d", type=str, choices=["0.6.4", "0.7d", "0.7dg"], help="Version of NJRat Server. 0.6.4, 0.7d, 0.7dg.")
     parser.add_argument("-Y", "--version-string", type=str, help="NJRat version string reported on initial callback.")
+    parser.add_argument("-D", "--delimiter", type=str, help="Used to set a custom delimiter, useful for modded njrat versions.")
     parser.add_argument("-k", "--keylog-text", default="No keylogs are available at this time. Please try again later.", type=str, help="Text to send when keylogs are requested.")
     parser.add_argument("-K", "--initial-text", help="Opens the file specified in the keylog window on the C2 server upon connecting.")
     parser.add_argument("-j", "--av", default="No Antivirus", type=str, help="Antivirus reported on initial callback.")

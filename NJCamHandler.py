@@ -12,6 +12,7 @@ class NJCamHandler(object):
         self.ver = None
         self.image = None
         self.delimiter = None
+        self.STARTED = False
 
         if args["host"]:
             self.host = args["host"]
@@ -31,6 +32,8 @@ class NJCamHandler(object):
             self.delimiter = "|'|'|"
         if self.ver == "0.7dg":
             self.delimiter = "|Hassan|"
+        if args["delimiter"]:
+            self.delimiter = args["delimiter"]
 
     def close_connection(self):
         pass
@@ -114,13 +117,16 @@ class NJ_064_CamHandler(NJCamHandler):
 
     @asyncio.coroutine
     def handle_nj_cam_start_command(self, msg):
-        self.controller.output("Received CAM start command")
+        if not self.STARTED:
+            self.controller.output("Received CAM start command") #one stupid nj variant spams the start message
+            self.STARTED = True
         yield from self.send_nj_cam_ack()
         #usually the server sends the size it wants, im lazy just give 100%
         yield from self.send_nj_cam_img(100)
 
     @asyncio.coroutine
     def handle_nj_cam_stop_command(self):
+        self.STARTED = False
         self.controller.output("Received CAM stop command")
 
     @asyncio.coroutine

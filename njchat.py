@@ -31,6 +31,7 @@ if __name__ == "__main__":
     parser.add_argument("host", type=str, help="The IP/Domain of the njrat C2.")
     parser.add_argument("port", type=int, help="The port the njrat C2 is listening on.")
     parser.add_argument("-y", "--ver", default="0.7d", type=str, choices=["0.6.4", "0.7d", "0.7dg"], help="Version of NJRat Server. 0.6.4, 0.7d, 0.7dg.")
+    parser.add_argument("-D", "--delimiter", type=str, help="Used to set a custom delimiter, useful for modded njrat versions.")
     parser.add_argument("-e", "--chat-echo", action='store_true', help="Echo chat messages.")
     parser.add_argument("-i", "--identifier", type=str, help="The full identifier used on initial callback for the C2 to identify which client the chat session is associated with")
     parser.add_argument("-r", "--reported-ip", type=str, help="The IP reported on initial callback for the C2 to identify which client the chat session is associated with")

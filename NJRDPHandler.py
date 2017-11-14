@@ -43,6 +43,8 @@ class NJRDPHandler(object):
             self.delimiter = "|'|'|"
         if self.ver == "0.7dg":
             self.delimiter = "|Hassan|"
+        if args["delimiter"]:
+            self.delimiter = args["delimiter"]
 
     def close_connection(self):
         pass
