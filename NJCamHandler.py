@@ -120,9 +120,9 @@ class NJ_064_CamHandler(NJCamHandler):
         if not self.STARTED:
             self.controller.output("Received CAM start command") #one stupid nj variant spams the start message
             self.STARTED = True
-        yield from self.send_nj_cam_ack()
-        #usually the server sends the size it wants, im lazy just give 100%
-        yield from self.send_nj_cam_img(100)
+            yield from self.send_nj_cam_ack()
+            #usually the server sends the size it wants, im lazy just give 100%
+            yield from self.send_nj_cam_img(100)
 
     @asyncio.coroutine
     def handle_nj_cam_stop_command(self):

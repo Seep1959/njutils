@@ -7,6 +7,7 @@ import os
 import zlib
 import tempfile
 import subprocess
+import pprint
 
 from PIL import Image
 from io import BytesIO
@@ -15,7 +16,10 @@ from NJProtocol import NJRatProtocol, NJRat_064_Protocol, NJRat_07d_Protocol, NJ
 from NJRDPHandler import NJRDPHandler, NJ_064_RDPHandler, NJ_07d_RDPHandler, NJ_07dg_RDPHandler
 from NJCamHandler import NJCamHandler, NJ_064_CamHandler, NJ_07d_CamHandler, NJ_07dg_CamHandler
 from NJChatHandler import NJChatHandler, NJ_064_ChatHandler, NJ_07d_ChatHandler, NJ_07dg_ChatHandler
+from NJFMHandler import NJFMHandler, NJ_064_FMHandler
 from NJController import NJController
+
+from NJManager import NJServiceManager, NJProcessManager
 
 modules = {b"2681e81bb4c4b3e6338ce2a456fb93a7": "sc2.dll",
            b"c4d7f8abbf369dc795fc7f2fdad65003": "cam.dll",
@@ -33,7 +37,16 @@ modules = {b"2681e81bb4c4b3e6338ce2a456fb93a7": "sc2.dll",
            b"61d60f5995eefd94e5bda84f1d76658a": "ch.dll",
            b"9fab2255751057746b517f7a8d1fbe4d": "sc2.dll",
            b"ff4362f7f574b3f3d01042776ac31fc6": "cam.dll",
-           b"c509995035cb9810559d98dc608b5c29": "mic.dll"}
+           b"c509995035cb9810559d98dc608b5c29": "mic.dll",
+           b"81c2f84151768cd10a3f43b1604dbdcf": "fm.dll",
+           b"c40597a661ae6e5126f9ad9db738398f": "sc2.dll",
+           b"705ee40d58d65fe27ed61e2789e6ccdb": "ch.dll",  #killerrat
+           b"c2b1a0c1c1c338087f955c8c9173752f": "fm.dll",  #killerrat
+           b"60127f7118972302bf0fa0b0bd6336a8": "cam.dll", #coringa
+           b"69cba2eea609c94c1e59c956f5ddf49c": "ch.dll",  #coringa
+           b"7c674ef03a7daf2dc6ef35a1e54c80b6": "fm.dll",  #coringa
+           b"518b02c36088c2f2d121d27ee163dd3b": "sc2.dll", #some weird variant, Hallaj PRO Rat [Fixed]
+           b"85be23493a9a4174c4388eaf23c4ec81": "sc2.dll"} #lime, just a guess
 
 
 class NJClientHandler(object):
@@ -66,6 +79,9 @@ class NJClientHandler(object):
         self.RDP_ENABLED = True
         self.ECHO = False
         self.INTERACTIVE_CHAT = False
+
+        self.service_manager = None
+        self.process_manager = None
 
 
         if args["host"]:
@@ -143,6 +159,14 @@ class NJClientHandler(object):
     def nj_send_plugin_ret(self, module, ret):
         msg = b"pl" + self.delimiter.encode() + module + self.delimiter.encode() + str(ret).encode()
         yield from self.send_nj_msg(msg)
+
+    @asyncio.coroutine
+    def nj_send_plg(self):
+        yield from self.send_nj_msg(b"PLG") #Sending this can get the njrat server to shitout a respone containing the plg.dll module, allowing us to identify njrat version and delimiter
+
+    @asyncio.coroutine
+    def nj_send_rss(self):
+        yield from self.send_nj_msg(b"rss")
 
     @asyncio.coroutine
     def nj_send_er_msg(self, error):
@@ -245,7 +269,7 @@ class NJ_064_ClientHandler(NJClientHandler):
         cb_msg.append(self.pc_name)
         cb_msg.append(self.username)
         cb_msg.append(self.date)
-        cb_msg.append("") #not sure what this field is for
+        cb_msg.append("") #Country goes here, most njrat versions ignore it and instead go off IP geolocation
         cb_msg.append(self.os)
         cb_msg.append("Yes") #cam bool
         cb_msg.append(self.version_string)
@@ -282,7 +306,6 @@ class NJ_064_ClientHandler(NJClientHandler):
         if module == "ch.dll" and self.CHAT_ENABLED:
             self.args["identifier"] = str(msg[1], 'utf-8')
             if self.INTERACTIVE_CHAT:
-                # a malicious server could do some command line injection here, ehh ill maybe fix it later
                 # forever grateful to who ever can make this less disgusting
                 cmd = [
                     'gnome-terminal', '--window-with-profile=njchat', '--',
@@ -307,6 +330,33 @@ class NJ_064_ClientHandler(NJClientHandler):
             self.args["identifier"] = str(msg[1], 'utf-8')
             controller = NJController(NJ_064_CamHandler, self.args, c=None)
             controller.start()
+        if module == "fm.dll":
+            self.args["identifier"] = str(msg[1], 'utf-8')
+            controller = NJController(NJ_064_FMHandler, self.args, c=None)
+            controller.start()
+
+    @asyncio.coroutine
+    def send_nj_proc_pid(self):
+        msg = b"proc" + self.delimiter.encode() + b"pid" + self.delimiter.encode() + b"1337"
+        yield from self.send_nj_msg(msg)
+
+    @asyncio.coroutine
+    def send_nj_proc_count(self):
+        msg = b"proc" + self.delimiter.encode() + b"~" + self.delimiter.encode() + b"1"
+        yield from self.send_nj_msg(msg)
+
+    @asyncio.coroutine
+    def send_nj_proc_count(self):
+        text = b"420" + b"," + b"C:\\test.exe,VGVzdGluZyBwcm9j"
+        msg = b"proc" + self.delimiter.encode() + b"!" + self.delimiter.encode() + text
+        yield from self.send_nj_msg(msg)
+
+    @asyncio.coroutine
+    def handle_nj_proc_command(self, msg):
+        if msg[0] == b"~":
+            yield from self.send_nj_proc_pid()
+            yield from self.send_nj_proc_count()
+            yield from self.send_nj_proc_list()
 
 
     @asyncio.coroutine
@@ -325,10 +375,16 @@ class NJ_064_ClientHandler(NJClientHandler):
             yield from self.handle_nj_rn_command(msg[1:])
         if msg[0] == b"inv":
             yield from self.handle_nj_inv_command(msg[1:])
+        if msg[0] == b"proc":
+            yield from self.handle_nj_proc_command(msg[1:])
+        if msg[0] == b"rs":
+            yield from self.send_nj_msg(b"rs|'|'|" + base64.b64encode(b"ME>") + msg[1])
 
     @asyncio.coroutine
     def run(self):
         try:
+            yield from self.send_nj_msg(b"~")
+            yield from self.send_nj_msg(b"lv")
             yield from self.send_nj_callback_msg()
             yield from self.nj_send_keylog_file()
             for key in modules.keys(): #tells the server we have every plugin
@@ -354,7 +410,7 @@ class NJ_07d_ClientHandler(NJClientHandler):
         cb_msg.append(self.pc_name)
         cb_msg.append(self.username)
         cb_msg.append(self.date)
-        cb_msg.append("") #not sure what this field is for
+        cb_msg.append("") #Country goes here, most njrat versions ignore it and instead go off IP geolocation
         cb_msg.append(self.os)
         cb_msg.append("Yes") #cam bool
         cb_msg.append(self.version_string)
@@ -367,6 +423,7 @@ class NJ_07d_ClientHandler(NJClientHandler):
     @asyncio.coroutine
     def handle_nj_keepalive(self):
         yield from self.send_nj_msg(b"")
+
 
     @asyncio.coroutine
     def handle_nj_rn_command(self, msg):
@@ -413,6 +470,108 @@ class NJ_07d_ClientHandler(NJClientHandler):
             controller = NJController(NJ_07d_CamHandler, self.args, c=None)
             controller.start()
 
+    @asyncio.coroutine
+    def handle_nj_ex_command(self, msg):
+        if msg[0] == b"srv":
+            yield from self.handle_nj_srv_command(msg[1:])
+        if msg[0] == b"proc":
+            yield from self.handle_nj_proc_command(msg[1:])
+
+    @asyncio.coroutine
+    def handle_nj_proc_command(self, msg):
+        if not self.process_manager:
+            self.process_manager = NJProcessManager(load="data/processes.json")
+            self.process_manager.create_self()
+        if msg[0] == b"U":
+            yield from self.handle_nj_proc_list(msg[1:])
+        if msg[0] == b"~":
+            yield from self.handle_nj_proc_getpid()
+        if msg[0] == b"k":
+            yield from self.handle_nj_proc_kill(msg[1:])
+
+
+    @asyncio.coroutine
+    def handle_nj_srv_command(self, msg):
+        if msg[0] == b"~":
+            yield from self.handle_nj_srv_list()
+
+    @asyncio.coroutine
+    def handle_nj_proc_list(self, msg):
+        exclude_pids = [pid.decode('utf-8') for pid in msg]
+        data = ""
+        data += "proc"
+        data += self.delimiter
+        data += "!"
+        data += self.delimiter
+        for process in self.process_manager.list_processes(exclude=exclude_pids):
+            process_entry = '[:]'.join([process.name, process.pid, process.executable_path, process.user, process.commandline])
+            data += process_entry + '[::]'
+        yield from self.send_nj_msg(data.encode())
+
+        data = ""
+        data += "proc"
+        data += self.delimiter
+        data += "RM"
+        for pid in self.process_manager.list_dead_pids(include_only=exclude_pids):
+            data += self.delimiter
+            data += pid
+        yield from self.send_nj_msg(data.encode())
+
+
+    @asyncio.coroutine
+    def handle_nj_proc_getpid(self):
+        self.controller.output("PROCESS MANAGER - GET PID")
+        pid = self.process_manager.getpid()
+        data = ""
+        data += "proc"
+        data += self.delimiter
+        data += "pid"
+        data += self.delimiter
+        data += pid
+        yield from self.send_nj_msg(data.encode())
+
+    @asyncio.coroutine
+    def handle_nj_proc_kill(self, msg):
+        pids = [pid.decode('utf-8') for pid in msg]
+        for pid in pids:
+            try:
+                self.process_manager.kill_process(pid)
+                process = self.process_manager.get_process(pid)
+                if process is not None:
+                    self.controller.output("PROCESS MANAGER - KILLED PROCESS {}:{}".format(process.name, process.pid))
+                else:
+                    self.controller.output("PROCESS MANAGER - KILLED PROCESS {}".format(pid))
+            except:
+                process = self.process_manager.get_process(pid)
+                if process is not None:
+                    self.controller.output("PROCESS MANAGER - KILL PROCESS {}:{} - ACCESS DENIED".format(process.name, process.pid))
+                else:
+                    self.controller.output("PROCESS MANAGER - KILL PROCESS {} - ACCESS DENIED".format(pid))
+                yield from self.send_nj_proc_error("Access is denied")
+
+    @asyncio.coroutine
+    def send_nj_proc_error(self, msg):
+        data = ""
+        data += "proc"
+        data += self.delimiter
+        data += "ER"
+        data += self.delimiter
+        data += msg
+        yield from self.send_nj_msg(data.encode())
+
+
+    @asyncio.coroutine
+    def handle_nj_srv_list(self):
+        if not self.service_manager:
+            self.service_manager = NJServiceManager(load="data/services.json")
+        data = ""
+        data += "srv"
+        data += self.delimiter
+        data += "~"
+        for service in self.service_manager.list_services():
+            service_entry = '[,]'.join([service.name, service.display_name, service.service_type, service.status, service.stoppable])
+            data += self.delimiter + service_entry
+        yield from self.send_nj_msg(data.encode())
 
 
     @asyncio.coroutine
@@ -434,11 +593,14 @@ class NJ_07d_ClientHandler(NJClientHandler):
                 yield from self.handle_nj_rn_command(msg[1:])
             if msg[0] == b"inv":
                 yield from self.handle_nj_inv_command(msg[1:])
+            if msg[0] == b"Ex":
+                yield from self.handle_nj_ex_command(msg[1:])
 
 
     @asyncio.coroutine
     def run(self):
         try:
+            yield from self.nj_send_plg()
             yield from self.send_nj_callback_msg()
             yield from self.nj_send_keylog_file()
             self.controller.output("Sent initial callback message")
@@ -458,7 +620,7 @@ class NJ_07dg_ClientHandler(NJClientHandler):
         cb_msg.append(self.pc_name)
         cb_msg.append(self.username)
         cb_msg.append(self.date)
-        cb_msg.append("")       #not sure what this field is for
+        cb_msg.append("")       #Country goes here, most njrat versions ignore it and instead go off IP geolocation
         cb_msg.append(self.os)
         cb_msg.append("Yes")    #cam bool
         cb_msg.append(self.av)  #why send antivirus 3 times, holyshit what kind of idiot designed this
@@ -471,6 +633,7 @@ class NJ_07dg_ClientHandler(NJClientHandler):
     @asyncio.coroutine
     def handle_nj_keepalive(self):
         yield from self.send_nj_msg(b"")
+
 
     @asyncio.coroutine
     def handle_nj_rn_command(self, msg):

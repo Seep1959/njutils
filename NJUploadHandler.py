@@ -19,6 +19,7 @@ class NJUploadHandler(object):
         self.identifier = None
         self.delimiter = None
         self.upload_file = None
+        self.file_name = None
 
         if args["host"]:
             self.host = args["host"]
@@ -28,6 +29,8 @@ class NJUploadHandler(object):
             self.identifier = args["identifier"]
         if args["upload_file"]:
             self.upload_file = args["upload_file"]
+        if args["file_name"]:
+            self.file_name = args["file_name"]
         if args["ver"]:
             self.ver = args["ver"]
         if self.ver == "0.6.4" or self.ver == "0.7d":
@@ -74,7 +77,10 @@ class NJUploadHandler(object):
     def send_nj_post_msg(self):
         if not self.identifier:
             self.get_identifier()
-        filename = os.path.basename(self.upload_file) #usually this would be full path, but we don't want to give that away.
+        if self.file_name:
+            filename = self.file_name
+        else:
+            filename = os.path.basename(self.upload_file) #usually this would be full path, but we don't want to give that away.
         msg = ""
         msg += "post"
         msg += self.delimiter
